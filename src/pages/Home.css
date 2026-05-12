@@ -16,7 +16,6 @@
     font-size: 100px;
     font-weight: bold;
     color: #fff;
-    /* text-shadow: 0 0 20px rgba(26, 77, 189, 0.8); */
     animation: countdownPulse 1s ease infinite;
 }
 
@@ -67,8 +66,8 @@
 }
 
 .summary-message h2 {
-    font-size: 42px;
-    margin: 0 0 30px 0;
+    font-size: 32px;
+    margin: 0 0 20px 0;
     color: var(--color-primary);
     font-weight: bold;
     -webkit-text-stroke: 0.01px #fff;
@@ -84,21 +83,21 @@
 }
 
 .summary-message .resumen-final h3 {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     color: white;
-    font-size: 28px;
+    font-size: 18px;
 }
 
 .summary-message .resumen-final p {
-    margin: 15px 0;
-    font-size: 20px;
+    margin: 10px 0;
+    font-size: 15px;
     color: white;
 }
 
 .summary-message ion-badge {
-    font-size: 18px;
+    font-size: 12px;
     padding: 11px 20px;
-    margin: 20px 0;
+    margin: 15px 0;
     --background: var(--color-primary);
 }
 
@@ -293,6 +292,17 @@
     --border-style: solid;
     --border-width: 1px;
     font-weight: bold;
+}
+
+.summary-overlay .summary-message ion-button#finalize,
+.summary-overlay .summary-message ion-button#exit {
+    width: min(260px, 80%);
+    min-height: 35px;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 13px;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
 }
 
 .inicio-container {

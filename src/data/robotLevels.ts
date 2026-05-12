@@ -20,32 +20,58 @@ export interface LevelConfig {
   exercises: Exercise[];
 }
 
+export function getExerciseBlockCount(exercise: Exercise): number {
+  return Math.max((exercise.grid[0]?.length ?? 1) - 1, 0);
+}
+
+function createLinearExercise(
+  id: number,
+  blocks: number,
+  objectCols: number[] = [],
+): Exercise {
+  const objectColSet = new Set(objectCols);
+  const grid = Array.from({ length: blocks + 1 }, (_, col): CellType => {
+    if (col === 0) return "S";
+    if (col === blocks) return "E";
+    return objectColSet.has(col) ? "O" : ".";
+  });
+
+  return {
+    id,
+    grid: [grid],
+    robotDir: "right",
+    objects: objectCols.map((col, idx) => ({
+      row: 0,
+      col,
+      type: idx % 2 === 0 ? "📦" : "⭐",
+    })),
+  };
+}
+
 export const LEVELS: Record<string, LevelConfig> = {
   basico: {
     label: "Básico",
     attempts: 3,
     showCount: 3,
-    exercises: [
-      { id: 1, grid: [["S", ".", ".", ".", "E"]], robotDir: "right", objects: [] },
-      { id: 2, grid: [["S", ".", ".", ".", ".", "E"]], robotDir: "right", objects: [] },
-      { id: 3, grid: [["S", ".", ".", ".", ".", ".", "E"]], robotDir: "right", objects: [] },
-      { id: 4, grid: [["S", ".", ".", ".", ".", ".", ".", "E"]], robotDir: "right", objects: [] },
-      { id: 5, grid: [["S", ".",".", "E"]], robotDir: "right", objects: [] },
-      { id: 6, grid: [["S", ".", ".",".",".",".",".", "E"]], robotDir: "right", objects: [] },
-    ],
+    exercises: Array.from({ length: 7 }, (_, idx) =>
+      createLinearExercise(idx + 1, idx + 3),
+    ),
   },
   intermedio: {
     label: "Intermedio",
     attempts: 2,
     showCount: 4,
     exercises: [
-      { id: 7, grid: [["S", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "📦" }, { row: 0, col: 4, type: "⭐" }] },
-      { id: 8, grid: [["S", ".", ".", "O", ".", "O", ".", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 3, type: "⭐" }, { row: 0, col: 5, type: "📦" }] },
-      { id: 9, grid: [["S", ".", "O", ".", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "📦" }, { row: 0, col: 5, type: "⭐" }, { row: 0, col: 7, type: "📦" }] },
-      { id: 11, grid: [["S", ".", ".", "O", ".", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 3, type: "📦" }, { row: 0, col: 6, type: "📦" }] },
-      { id: 12, grid: [["S", ".", "O", ".", ".", "O", ".", ".", "O", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "⭐" }, { row: 0, col: 5, type: "⭐" }, { row: 0, col: 8, type: "⭐" }] },
-      { id: 13, grid: [["S", ".", "O", ".", ".", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "📦" }, { row: 0, col: 6, type: "⭐" }] },
-      { id: 14, grid: [["S", ".", ".", "O", "O", "O", ".", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 3, type: "📦" }, { row: 0, col: 4, type: "⭐" }, { row: 0, col: 5, type: "📦" }] },
+      createLinearExercise(7, 5, [2, 4]),
+      createLinearExercise(8, 6, [1, 3, 5]),
+      createLinearExercise(9, 7, [2, 5]),
+      createLinearExercise(10, 8, [2, 4, 6]),
+      createLinearExercise(11, 9, [3, 6]),
+      createLinearExercise(12, 10, [2, 5, 8]),
+      createLinearExercise(13, 11, [3, 7]),
+      createLinearExercise(14, 12, [2, 6, 10]),
+      createLinearExercise(15, 13, [3, 7, 11]),
+      createLinearExercise(16, 14, [4, 8, 12]),
     ],
   },
   avanzado: {
@@ -53,14 +79,14 @@ export const LEVELS: Record<string, LevelConfig> = {
     attempts: 1,
     showCount: 5,
     exercises: [
-      { id: 15, grid: [["S", ".", "O", ".", "O", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "⭐" }, { row: 0, col: 4, type: "📦" }, { row: 0, col: 6, type: "📦" }, { row: 0, col: 8, type: "⭐" }] },
-      { id: 16, grid: [["S", "O", ".", "O", ".", ".", "O", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 1, type: "📦" }, { row: 0, col: 3, type: "📦" }, { row: 0, col: 6, type: "⭐" }, { row: 0, col: 8, type: "📦" }, { row: 0, col: 10, type: "⭐" }] },
-      { id: 17, grid: [["S", ".", "O", ".", "O", ".", ".", "O", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "📦" }, { row: 0, col: 4, type: "⭐" }, { row: 0, col: 7, type: "📦" }, { row: 0, col: 8, type: "📦" }, { row: 0, col: 10, type: "⭐" }] },
-      { id: 18, grid: [["S", "O", ".", "O", ".", "O", ".", ".", "O", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 1, type: "⭐" }, { row: 0, col: 3, type: "⭐" }, { row: 0, col: 5, type: "📦" }, { row: 0, col: 8, type: "⭐" }, { row: 0, col: 10, type: "⭐" }, { row: 0, col: 12, type: "📦" }] },
-      { id: 19, grid: [["S", ".", "O", "O", ".", ".", "O", ".", "O", ".", ".", "O", ".", "O", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "⭐" }, { row: 0, col: 3, type: "📦" }, { row: 0, col: 6, type: "⭐" }, { row: 0, col: 8, type: "⭐" }, { row: 0, col: 11, type: "📦" }, { row: 0, col: 13, type: "⭐" }] },
-      { id: 20, grid: [["S", ".", ".", "O", ".", "O", ".", ".", "O", ".", "O", "E"]], robotDir: "right", objects: [{ row: 0, col: 3, type: "📦" }, { row: 0, col: 5, type: "📦" }, { row: 0, col: 8, type: "📦" }, { row: 0, col: 10, type: "⭐" }] },
-      { id: 21, grid: [["S", ".", "O", ".", ".", "O", ".", "O", ".", ".", "O", ".", "O", "E"]], robotDir: "right", objects: [{ row: 0, col: 2, type: "📦" }, { row: 0, col: 5, type: "⭐" }, { row: 0, col: 7, type: "⭐" }, { row: 0, col: 10, type: "📦" }, { row: 0, col: 12, type: "⭐" }] },
-      { id: 22, grid: [["S", "O", ".", ".", "O", ".", "O", ".", ".", "O", ".", ".", "O", ".", ".", "E"]], robotDir: "right", objects: [{ row: 0, col: 1, type: "⭐" }, { row: 0, col: 4, type: "📦" }, { row: 0, col: 6, type: "📦" }, { row: 0, col: 9, type: "📦" }, { row: 0, col: 12, type: "⭐" }] },
+      createLinearExercise(17, 7, [1, 3, 5, 6]),
+      createLinearExercise(18, 8, [1, 3, 5, 7]),
+      createLinearExercise(19, 9, [1, 3, 5, 7]),
+      createLinearExercise(20, 10, [1, 3, 5, 7, 9]),
+      createLinearExercise(21, 11, [1, 3, 5, 7, 9]),
+      createLinearExercise(22, 12, [2, 4, 6, 8, 10]),
+      createLinearExercise(23, 13, [1, 3, 5, 7, 9, 11]),
+      createLinearExercise(24, 14, [2, 4, 6, 8, 10, 12]),
     ],
   },
 };

@@ -9,6 +9,7 @@ import {
 import {
   CellType,
   Exercise,
+  getExerciseBlockCount,
   LEVEL_MAP,
   LEVEL_POINTS,
   LEVELS,
@@ -32,6 +33,12 @@ interface GameCore {
   exerciseData: Exercise | null;
 }
 
+type ResultOverlay = {
+  type: "success" | "fail";
+  title: string;
+  message: string;
+};
+
 interface Props {
   difficulty: Difficulty;
   active: boolean;
@@ -47,10 +54,12 @@ export interface RobotGameHandle {
 }
 
 const ROBOT_WALKING_GIF = "/walking_V3_fast_transparent.gif";
+const ROBOT_GREETING_GIF = "/greeting_V2_fast.gif";
 const ROBOT_JUMPING_GIF = "/jumping_transparent.gif";
 const ROBOT_PICK_UP_STAR_GIF = "/pick-up-star.gif";
 const ROBOT_PICK_UP_BOX_GIF = "/pick-up-box.gif";
 const PICK_UP_ANIMATION_MS = 2600;
+const RESULT_OVERLAY_MS = 3000;
 const SOURCE_BLOCKS: BlockId[] = ["inicio", "avanzar", "recoger", "fin"];
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -64,8 +73,33 @@ function shufflePick<T>(arr: T[], count: number): T[] {
   return copy.slice(0, count);
 }
 
+function shufflePickUniqueBlockCounts(
+  exercises: Exercise[],
+  count: number,
+): Exercise[] {
+  const shuffled = shufflePick(exercises, exercises.length);
+  const usedBlockCounts = new Set<number>();
+  const selected: Exercise[] = [];
+
+  for (const exercise of shuffled) {
+    const blockCount = getExerciseBlockCount(exercise);
+    if (usedBlockCounts.has(blockCount)) continue;
+
+    usedBlockCounts.add(blockCount);
+    selected.push(exercise);
+
+    if (selected.length === count) break;
+  }
+
+  return selected;
+}
+
 function findStartCol(grid: CellType[][]): number {
   return grid[0].findIndex((c) => c === "S") ?? 0;
+}
+
+function getIdleRobotGif(grid: CellType[][], row: number, col: number): string {
+  return grid[row]?.[col] === "S" ? ROBOT_GREETING_GIF : ROBOT_WALKING_GIF;
 }
 
 function getPickUpGif(obj?: RobotObject): string {
@@ -102,10 +136,9 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   const [exIdx, setExIdx] = useState(0);
   const [sequence, setSequence] = useState<SequenceItem[]>([]);
   const [attemptsLeft, setAttemptsLeft] = useState(levelCfg.attempts);
-  const [modal, setModal] = useState<"success" | "fail" | "finish" | null>(
+  const [resultOverlay, setResultOverlay] = useState<ResultOverlay | null>(
     null,
   );
-  const [modalPoints, setModalPoints] = useState(0);
   const [notif, setNotif] = useState<{ msg: string; type: string } | null>(
     null,
   );
@@ -113,7 +146,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [dragAbove, setDragAbove] = useState(false);
   const [visualRobotX, setVisualRobotX] = useState(0);
-  const [robotGifSrc, setRobotGifSrc] = useState(ROBOT_WALKING_GIF);
+  const [robotGifSrc, setRobotGifSrc] = useState(ROBOT_GREETING_GIF);
   const [, setTick] = useState(0);
 
   const rerender = () => setTick((t) => t + 1);
@@ -209,6 +242,12 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
     setTimeout(() => setNotif(null), 2500);
   };
 
+  const showResultOverlay = async (overlay: ResultOverlay) => {
+    setResultOverlay(overlay);
+    await sleep(RESULT_OVERLAY_MS);
+    setResultOverlay(null);
+  };
+
   const loadExercise = (exs: Exercise[], idx: number) => {
     const ex = exs[idx];
     if (!ex) return;
@@ -222,22 +261,24 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
       exerciseData: ex,
     };
     syncVisualRobotCol(startCol);
-    setRobotGifSrc(ROBOT_WALKING_GIF);
+    setRobotGifSrc(getIdleRobotGif(grid, 0, startCol));
     setAttemptsLeft(levelCfg.attempts);
     setSequence([]);
-    setModal(null);
+    setResultOverlay(null);
     rerender();
     onExerciseChange(idx, exs.length);
   };
 
   useEffect(() => {
-    const selected = shufflePick(levelCfg.exercises, levelCfg.showCount);
+    const selected = shufflePickUniqueBlockCounts(
+      levelCfg.exercises,
+      levelCfg.showCount,
+    );
     setExercises(selected);
     setExIdx(0);
     loadExercise(selected, 0);
   }, [difficulty]);
 
-  // ── Touch drag & drop ────────────────────────────────────
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
       if (!touchDrag.current) return;
@@ -326,7 +367,6 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
     };
   };
 
-  // ── Drag & drop ──────────────────────────────────────────
   const handleSourceDragStart = (id: string) => {
     dragData.current = { id, param: null, fromIdx: null };
   };
@@ -388,9 +428,8 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
       p.map((item, i) => (i === idx ? { ...item, param: val } : item)),
     );
 
-  // ── Execution ─────────────────────────────────────────────
   const validateSolution = async (seq: SequenceItem[]) => {
-    if (isRunning.current || !active || isPaused || modal) return;
+    if (isRunning.current || !active || isPaused || resultOverlay) return;
     if (seq.length === 0) {
       showNotif("Arrastra instrucciones a la secuencia primero.", "error");
       return;
@@ -417,7 +456,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
     core.current.robot = { row: 0, col: startCol };
     core.current.collectedObjects = [];
     syncVisualRobotCol(startCol);
-    setRobotGifSrc(ROBOT_WALKING_GIF);
+    setRobotGifSrc(getIdleRobotGif(core.current.grid, 0, startCol));
     rerender();
     await sleep(400);
 
@@ -438,17 +477,21 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
             showNotif("Debes indicar cuántos bloques avanzar.", "error");
             break;
           }
+          const lastCol = core.current.grid[0].length - 1;
+          const willLeavePath = core.current.robot.col + steps > lastCol;
+          setRobotGifSrc(ROBOT_WALKING_GIF);
           for (let s = 0; s < steps; s++) {
             const newCol = core.current.robot.col + 1;
             if (newCol >= core.current.grid[0].length) {
               success = false;
+              setRobotGifSrc(ROBOT_WALKING_GIF);
               showNotif("¡El robot se salió del camino!", "error");
               break;
             }
             core.current.robot.col = newCol;
             rerender();
             await animateVisualRobotTo(newCol);
-            if (core.current.grid[0]?.[newCol] === "E") {
+            if (!willLeavePath && core.current.grid[0]?.[newCol] === "E") {
               setRobotGifSrc(ROBOT_JUMPING_GIF);
             }
           }
@@ -465,7 +508,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
             rerender();
             showNotif("¡Objeto recogido!", "success");
             await sleep(PICK_UP_ANIMATION_MS);
-            setRobotGifSrc(ROBOT_WALKING_GIF);
+            setRobotGifSrc(getIdleRobotGif(core.current.grid, row, col));
           } else {
             success = false;
             showNotif("No hay objeto aquí para recoger.", "error");
@@ -484,21 +527,39 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
 
     if (success && endCell === "E" && allCollected) {
       const pts = LEVEL_POINTS[levelKey] ?? 10;
-      setModalPoints(pts);
-      setModal("success");
       onCorrect(pts);
+      await showResultOverlay({
+        type: "success",
+        title: "¡Correcto!",
+        message: `Ganaste ${pts} puntos`,
+      });
+      goNext();
     } else {
       const left = core.current.attemptsLeft - 1;
       core.current.attemptsLeft = left;
       setAttemptsLeft(left);
-      setModal("fail");
-      onWrong();
+      const isFinalAttempt = left <= 0;
+      if (isFinalAttempt) onWrong();
+      await showResultOverlay({
+        type: "fail",
+        title: left > 0 ? "Intento agotado" : "Sin intentos",
+        message:
+          left > 0
+            ? `Intentos restantes: ${left}`
+            : "Avanzando al siguiente ejercicio.",
+      });
+
+      if (left > 0) {
+        resetExercise(false);
+      } else {
+        goNext();
+      }
     }
 
     isRunning.current = false;
   };
 
-  const resetExercise = () => {
+  const resetExercise = (showMessage = true) => {
     const ex = core.current.exerciseData;
     if (!ex) return;
     const grid = JSON.parse(JSON.stringify(ex.grid)) as CellType[][];
@@ -507,11 +568,11 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
     core.current.robot = { row: 0, col: startCol };
     core.current.collectedObjects = [];
     syncVisualRobotCol(startCol);
-    setRobotGifSrc(ROBOT_WALKING_GIF);
+    setRobotGifSrc(getIdleRobotGif(grid, 0, startCol));
     setSequence([]);
-    setModal(null);
+    setResultOverlay(null);
     rerender();
-    showNotif("Ejercicio reiniciado.", "info");
+    if (showMessage) showNotif("Ejercicio reiniciado.", "info");
   };
 
   useImperativeHandle(ref, () => ({
@@ -521,7 +582,6 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   const goNext = () => {
     const next = exIdx + 1;
     if (next >= exercises.length) {
-      setModal("finish");
       onDone();
     } else {
       setExIdx(next);
@@ -538,7 +598,6 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   };
 
   const { grid, robot, exerciseData } = core.current;
-  const isLastEx = exIdx >= exercises.length - 1;
   const columns = Math.max(grid[0]?.length ?? 1, 1);
   const gridStyle = {
     gridTemplateColumns: `repeat(${columns}, 1fr)`,
@@ -550,91 +609,26 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
 
   return (
     <div className="rg-root">
-      {/* Notification */}
       {notif && (
         <div className={`rg-notif rg-notif--${notif.type}`}>{notif.msg}</div>
       )}
 
-      {/* Modal */}
-      {modal && (
-        <div className="rg-modal-bg">
-          <div className="rg-modal">
-            <h3 className="rg-modal-title">
-              {modal === "success"
-                ? "¡Correcto! 🎉"
-                : modal === "fail"
-                  ? "¡Incorrecto! 😞"
-                  : "Juego Finalizado 🏆"}
-            </h3>
-            {modal === "success" && (
-              <p>
-                Ganaste <strong>{modalPoints} puntos</strong>
-              </p>
-            )}
-            {modal === "fail" && (
-              <p>
-                Intentos restantes: <strong>{attemptsLeft}</strong>
-              </p>
-            )}
-            {modal === "finish" && <p>¡Completaste todos los ejercicios!</p>}
-            <div className="rg-modal-btns">
-              {modal === "success" && !isLastEx && (
-                <button className="rg-btn rg-btn--primary" onClick={goNext}>
-                  Siguiente →
-                </button>
-              )}
-              {modal === "success" && isLastEx && (
-                <button
-                  className="rg-btn rg-btn--primary"
-                  onClick={() => {
-                    setModal("finish");
-                    onDone();
-                  }}
-                >
-                  Finalizar
-                </button>
-              )}
-              {modal === "fail" && attemptsLeft > 0 && (
-                <button
-                  className="rg-btn rg-btn--primary"
-                  onClick={() => {
-                    setModal(null);
-                    resetExercise();
-                  }}
-                >
-                  Reintentar
-                </button>
-              )}
-              {modal === "fail" && attemptsLeft <= 0 && !isLastEx && (
-                <button className="rg-btn rg-btn--primary" onClick={goNext}>
-                  Siguiente →
-                </button>
-              )}
-              {modal === "fail" && attemptsLeft <= 0 && isLastEx && (
-                <button
-                  className="rg-btn rg-btn--primary"
-                  onClick={() => {
-                    setModal("finish");
-                    onDone();
-                  }}
-                >
-                  Finalizar
-                </button>
-              )}
-              {modal !== "finish" && (
-                <button
-                  className="rg-btn rg-btn--secondary"
-                  onClick={() => setModal(null)}
-                >
-                  Cerrar
-                </button>
-              )}
+      {resultOverlay && (
+        <div
+          className={`rg-result-overlay rg-result-overlay--${resultOverlay.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="rg-result-card">
+            <div className="rg-result-icon">
+              {resultOverlay.type === "success" ? "✓" : "!"}
             </div>
+            <h3 className="rg-result-title">{resultOverlay.title}</h3>
+            <p>{resultOverlay.message}</p>
           </div>
         </div>
       )}
 
-      {/* Source pieces */}
       <div className="rg-pieces-row">
         {sourceBlocks.map((type) => (
           <div
@@ -708,7 +702,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
             >
               {item.id === "inicio" && (<span style={{flex: '1', textAlign: 'center'}}>Inicio</span>)}
               {item.id === "fin" && (<span style={{flex: '1', textAlign: 'center'}}>Fin</span>)}
-              {item.id === "recoger" && (<span style={{flex: '1', textAlign: 'center'}}>Recoger objetos</span>)}
+              {item.id === "recoger" && (<span style={{flex: '1', textAlign: 'center'}}>Recoger objeto</span>)}
               {item.id === "avanzar" && (
                 <span className="rg-piece-avanzar">
                   <span>Avanzar</span>
@@ -735,11 +729,9 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
         )}
       </div>
 
-      {/* Grid area */}
       <div className="rg-grid-area">
         {exerciseData && (
           <>
-            {/* <p className="rg-ex-desc">{exerciseData.description}</p> */}
             <div
               className="rg-grid"
               style={gridStyle}
@@ -770,44 +762,9 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
                 draggable={false}
               />
             </div>
-            {/* <div className="rg-attempts">
-              Intentos restantes: <strong>{attemptsLeft}</strong>
-            </div> */}
           </>
         )}
       </div>
-
-      {/* Controls */}
-      {/* <div className="rg-controls">
-        <button
-          className="rg-btn rg-btn--secondary"
-          onClick={goPrev}
-          disabled={isRunning.current}
-        >
-          ← Anterior
-        </button>
-        <button
-          className="rg-btn rg-btn--danger"
-          onClick={resetExercise}
-          disabled={isRunning.current}
-        >
-          Reiniciar
-        </button>
-        <button
-          className="rg-btn rg-btn--primary"
-          onClick={() => validateSolution(sequence)}
-          disabled={isRunning.current || !active || isPaused}
-        >
-          ▶ Ejecutar
-        </button>
-        <button
-          className="rg-btn rg-btn--secondary"
-          onClick={goNext}
-          disabled={isRunning.current}
-        >
-          Siguiente →
-        </button>
-      </div> */}
     </div>
   );
   },
