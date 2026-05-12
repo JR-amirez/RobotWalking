@@ -1,0 +1,9 @@
+{
+    "nivel": "intermedio",
+    "autor": "Valeria C. Z.",
+    "version": "1.0",
+    "fecha": "2025-12-02",
+    "descripcion": "Juego para el desarrollo de habilidades matemáticas",
+    "nombreApp": "STEAM-G",
+    "plataformas": ["android"]
+}

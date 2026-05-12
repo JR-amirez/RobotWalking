@@ -1,0 +1,7 @@
+{
+  "name": "robotWalking",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
