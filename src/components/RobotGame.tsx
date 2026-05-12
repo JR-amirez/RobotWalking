@@ -43,7 +43,7 @@ interface Props {
   difficulty: Difficulty;
   active: boolean;
   isPaused: boolean;
-  onCorrect: (points: number) => void;
+  onCorrect: (points: number) => void | Promise<void>;
   onWrong: () => void;
   onDone: () => void;
   onExerciseChange: (current: number, total: number) => void;
@@ -53,11 +53,11 @@ export interface RobotGameHandle {
   execute: () => Promise<void>;
 }
 
-const ROBOT_WALKING_GIF = "/walking_V3_fast_transparent.gif";
-const ROBOT_GREETING_GIF = "/greeting_V2_fast.gif";
-const ROBOT_JUMPING_GIF = "/jumping_transparent.gif";
-const ROBOT_PICK_UP_STAR_GIF = "/pick-up-star.gif";
-const ROBOT_PICK_UP_BOX_GIF = "/pick-up-box.gif";
+const ROBOT_WALKING_GIF = "/assets/walking_V3_fast_transparent.gif";
+const ROBOT_GREETING_GIF = "/assets/greeting_V2_fast.gif";
+const ROBOT_JUMPING_GIF = "/assets/jumping_transparent.gif";
+const ROBOT_PICK_UP_STAR_GIF = "/assets/pick-up-star.gif";
+const ROBOT_PICK_UP_BOX_GIF = "/assets/pick-up-box.gif";
 const PICK_UP_ANIMATION_MS = 2600;
 const RESULT_OVERLAY_MS = 3000;
 const SOURCE_BLOCKS: BlockId[] = ["inicio", "avanzar", "recoger", "fin"];
@@ -527,7 +527,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
 
     if (success && endCell === "E" && allCollected) {
       const pts = LEVEL_POINTS[levelKey] ?? 10;
-      onCorrect(pts);
+      await onCorrect(pts);
       await showResultOverlay({
         type: "success",
         title: "¡Correcto!",

@@ -28,6 +28,7 @@ import { App } from "@capacitor/app";
 import { ScreenOrientation } from "@capacitor/screen-orientation";
 import RobotGame, { type RobotGameHandle } from "../components/RobotGame";
 import { LEVEL_MAP, LEVEL_POINTS, LEVELS } from "../data/robotLevels";
+import ARModal, { ARTipo } from "../components/ARModal";
 
 const lockLandscape = async () => {
   try {
@@ -74,6 +75,17 @@ type ConfettiPiece = {
   color: string;
 };
 
+type ARSeccionConfig = {
+  activo?: boolean;
+  fondo?: string;
+  contenido?: {
+    texto?: string;
+    imagen?: string;
+    audio?: string;
+    video?: string;
+  };
+};
+
 type RobotRuntimeConfig = {
   nivel?: string;
   autor?: string;
@@ -82,6 +94,11 @@ type RobotRuntimeConfig = {
   descripcion?: string;
   nombreApp?: string;
   plataformas?: string[];
+  ar?: {
+    inicio?: ARSeccionConfig;
+    acierto?: ARSeccionConfig;
+    fin?: ARSeccionConfig;
+  };
 };
 
 const getLevelObjectSummary = (levelCfg: (typeof LEVELS)[string]): string => {
@@ -154,6 +171,10 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
   const [totalAnswered, setTotalAnswered] = useState<number>(0);
   const [gameActive, setGameActive] = useState<boolean>(false);
   const [isExecutingRobot, setIsExecutingRobot] = useState<boolean>(false);
+  const [showARModal, setShowARModal] = useState<boolean>(false);
+  const [arTipo, setARTipo] = useState<ARTipo>("inicio");
+  const arConfigRef = useRef<RobotRuntimeConfig["ar"]>(undefined);
+  const arOnCloseRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const cargarConfig = async () => {
@@ -177,6 +198,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
         if (data.descripcion) setAppDescripcion(data.descripcion);
         if (data.plataformas) setAppPlataformas(data.plataformas.join(", "));
         if (data.nombreApp) setAppNombreJuego(data.nombreApp);
+        if (data.ar) arConfigRef.current = data.ar;
       } catch (err) {
         console.error("No se pudo cargar robot-config.json", err);
       } finally {
@@ -195,10 +217,12 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
 
       return () => clearTimeout(timer);
     } else if (showCountdown && countdown === 0) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setShowCountdown(false);
-        startGameLogic();
+        openAR("inicio", startGameLogic);
       }, 500);
+
+      return () => clearTimeout(timer);
     }
   }, [countdown, showCountdown]);
 
@@ -208,6 +232,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
       isPaused ||
       showCountdown ||
       showFeedback ||
+      showARModal ||
       tiempoRestante <= 0
     )
       return;
@@ -229,6 +254,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
     isPaused,
     showCountdown,
     showFeedback,
+    showARModal,
     tiempoRestante,
     currentExerciseIndex,
   ]);
@@ -351,6 +377,33 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
     }
   };
 
+  const openAR = (tipo: ARTipo, onClose: () => void) => {
+    const seccion = arConfigRef.current?.[tipo];
+    const hasContent =
+      seccion?.contenido &&
+      Object.values(seccion.contenido).some(
+        (value) => typeof value === "string" && value.trim() !== "",
+      );
+
+    if (seccion?.activo && hasContent) {
+      setARTipo(tipo);
+      arOnCloseRef.current = onClose;
+      setShowARModal(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const waitForAR = (tipo: ARTipo) =>
+    new Promise<void>((resolve) => openAR(tipo, resolve));
+
+  const handleARClose = () => {
+    setShowARModal(false);
+    const cb = arOnCloseRef.current;
+    arOnCloseRef.current = null;
+    cb?.();
+  };
+
   const startGameLogic = () => {
     const config = getGameConfig(difficultyConfig);
     setCurrentExerciseIndex(0);
@@ -364,7 +417,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
 
   const endGame = () => {
     setGameActive(false);
-    setShowSummary(true);
+    openAR("fin", () => setShowSummary(true));
   };
 
   const advanceAfterFeedback = () => {
@@ -412,6 +465,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
       showSummary ||
       showInstructions ||
       showFeedback ||
+      showARModal ||
       pausado
     )
       return;
@@ -619,6 +673,10 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 <p className="data">{appFecha}</p>
               </div>
               <div className="card">
+                <p className="title">AUTOR</p>
+                <p className="data">{appAutor}</p>
+              </div>
+              <div className="card">
                 <p className="title">PLATAFORMAS</p>
                 <p className="data">{formatPlataforma(appPlataformas)}</p>
               </div>
@@ -626,18 +684,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 <p className="title">NÚMERO DE EJERCICIOS</p>
                 <p className="data">
                   {currentGameConfig.totalExercises}
-                </p>
-              </div>
-              <div className="card">
-                <p className="title">OPORTUNIDADES POR EJERCICIO</p>
-                <p className="data">
-                  {currentGameConfig.attemptsPerExercise}
-                </p>
-              </div>
-              <div className="card">
-                <p className="title">OBJETOS A RECOGER</p>
-                <p className="data">
-                  {currentGameConfig.objectSummary}
                 </p>
               </div>
               <div className="card description">
@@ -691,6 +737,15 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
             </IonButton>
           </div>
         </div>
+      )}
+
+      {showARModal && (
+        <ARModal
+          tipo={arTipo}
+          contenido={arConfigRef.current?.[arTipo]?.contenido ?? {}}
+          fondo={arConfigRef.current?.[arTipo]?.fondo}
+          onClose={handleARClose}
+        />
       )}
 
       <IonContent fullscreen className="ion-padding">
@@ -813,11 +868,12 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 ref={robotGameRef}
                 difficulty={difficultyConfig}
                 active={gameActive}
-                isPaused={isPaused}
-                onCorrect={(pts) => {
+                isPaused={isPaused || showARModal}
+                onCorrect={async (pts) => {
                   setScore((prev) => prev + pts);
                   setTotalCorrect((prev) => prev + 1);
                   setTotalAnswered((prev) => prev + 1);
+                  await waitForAR("acierto");
                 }}
                 onWrong={() => setTotalAnswered((prev) => prev + 1)}
                 onDone={endGame}
@@ -836,6 +892,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 disabled={
                   showCountdown ||
                   showFeedback ||
+                  showARModal ||
                   showSummary ||
                   showInstructions ||
                   pausado ||
@@ -855,6 +912,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                   !gameActive ||
                   isExecutingRobot ||
                   isPaused ||
+                  showARModal ||
                   showCountdown ||
                   showFeedback ||
                   showSummary ||
