@@ -37,14 +37,12 @@ const GameGrid: React.FC<Props> = ({ gameState }) => {
             data-row={0}
             data-col={c}
           >
-            {/* Contenido de la celda */}
             {value === "E" && "🏁"}
 
             {value === "O" && (
               <span className="object-icon">{obj ? obj.type : "📦"}</span>
             )}
 
-            {/* Robot */}
             {isRobot && (
               <span className="robot" id="robot-sprite">
                 🤖

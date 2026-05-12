@@ -20,7 +20,6 @@ interface ARModalProps {
     onClose: () => void;
 }
 
-// ── Símbolos flotantes ────────────────────────────────────────────────────
 const MATH_SYMBOLS = ['×', '+', '÷', '-', '=', '1', '2', '3'];
 
 const createFloatingSymbols = (container: HTMLDivElement): (() => void) => {
@@ -57,7 +56,6 @@ const createFloatingSymbols = (container: HTMLDivElement): (() => void) => {
     return () => { nodes.forEach(n => n.remove()); styles.forEach(s => s.remove()); };
 };
 
-// ── Escena Three.js por tipo de contenido ────────────────────────────────
 const initThreeForType = (
     container: HTMLDivElement,
     type: 'Texto' | 'Imagen' | 'Video',
@@ -92,7 +90,6 @@ const initThreeForType = (
     const root = new THREE.Group();
     scene.add(root);
 
-    // helpers
     const mkTextTex = (text: string): THREE.CanvasTexture => {
         const cv  = document.createElement('canvas');
         const cx  = cv.getContext('2d')!;
@@ -162,16 +159,14 @@ const initThreeForType = (
         }
     };
 
-    // ── Texto 3D ──────────────────────────────────────────────────────────
     if (type === 'Texto') {
         scene.add(new THREE.AmbientLight(0xffffff, 1.2));
         const dir = new THREE.DirectionalLight(0xffffff, 1.5);
         dir.position.set(2, 3, 4); scene.add(dir);
 
-        // Helvetiker solo soporta ASCII básico; normaliza tildes y símbolos españoles
         const normalizeForFont = (t: string): string =>
             t.normalize('NFD')
-             .replace(/[̀-ͯ]/g, '')   // elimina diacríticos (á→a, é→e…)
+             .replace(/[̀-ͯ]/g, '')
              .replace(/¡/g, '!')
              .replace(/¿/g, '?')
              .replace(/Ñ/g, 'N')
@@ -223,7 +218,6 @@ const initThreeForType = (
             fallbackPlane,
         );
 
-    // ── Imagen ───────────────────────────────────────────────────────────
     } else if (type === 'Imagen') {
         const loader = new THREE.TextureLoader();
         loader.setCrossOrigin('anonymous');
@@ -248,7 +242,6 @@ const initThreeForType = (
             root.add(pb);
         });
 
-    // ── Video con efecto portal ───────────────────────────────────────────
     } else if (type === 'Video') {
         const plane = new THREE.Mesh(
             new THREE.PlaneGeometry(1, 1),
@@ -318,7 +311,6 @@ const initThreeForType = (
         videoEl.play().catch(() => {});
     }
 
-    // ── Bucle de animación ────────────────────────────────────────────────
     const animate = () => {
         if (disposed) return;
         if (enableRootSpin) root.rotation.y += 0.008;
@@ -355,7 +347,6 @@ const initThreeForType = (
     };
 };
 
-// ── Componente ────────────────────────────────────────────────────────────
 const ARModal: FC<ARModalProps> = ({ tipo, contenido, fondo, onClose }) => {
     const text     = contenido.texto?.trim()  ?? '';
     const imageUrl = contenido.imagen?.trim() ?? '';
@@ -379,12 +370,10 @@ const ARModal: FC<ARModalProps> = ({ tipo, contenido, fondo, onClose }) => {
     const streamRef     = useRef<MediaStream | null>(null);
 
     useEffect(() => {
-        // Símbolos flotantes
         const cleanupSymbols = bgElementsRef.current
             ? createFloatingSymbols(bgElementsRef.current)
             : undefined;
 
-        // Camara frontal (solo acierto)
         if (tipo === 'acierto' && videoFeedRef.current) {
             navigator.mediaDevices
                 .getUserMedia({ video: { facingMode: 'user' }, audio: false })
@@ -398,12 +387,10 @@ const ARModal: FC<ARModalProps> = ({ tipo, contenido, fondo, onClose }) => {
                 .catch(() => {});
         }
 
-        // Audio
         if (audioRef.current && audioUrl) {
             audioRef.current.play().catch(() => {});
         }
 
-        // Escenas Three.js por tipo
         const cleanups: (() => void)[] = [];
         if (hasText  && textRef.current)  cleanups.push(initThreeForType(textRef.current,  'Texto',  text));
         if (hasImage && imageRef.current) cleanups.push(initThreeForType(imageRef.current, 'Imagen', imageUrl));
@@ -420,12 +407,10 @@ const ARModal: FC<ARModalProps> = ({ tipo, contenido, fondo, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Color de fondo para etapas sin cámara
     const cardStyle = tipo !== 'acierto'
         ? { background: '#1a1a2e' }
         : {};
 
-    // Layout del contenido
     const textJsx  = hasText  && <div className="ar-multi-text-3d" ><div ref={textRef}  className="ar-three-container" /></div>;
     const imageJsx = hasImage && <div className="ar-multi-image"   ><div ref={imageRef} className="ar-three-container" /></div>;
     const videoJsx = hasVideo && <div className="ar-multi-video"   ><div ref={videoRef} className="ar-three-container" /></div>;
@@ -454,15 +439,12 @@ const ARModal: FC<ARModalProps> = ({ tipo, contenido, fondo, onClose }) => {
                 style={cardStyle}
                 onClick={e => e.stopPropagation()}
             >
-                {/* Feed de cámara (acierto) */}
                 {tipo === 'acierto' && (
                     <video ref={videoFeedRef} className="ar-camera-feed" autoPlay playsInline muted />
                 )}
 
-                {/* Símbolos flotantes */}
                 <div ref={bgElementsRef} className="ar-bg-elements" />
 
-                {/* Área de contenido */}
                 <div className="ar-content-area">
                     <div className="ar-multi-content">
                         {renderLayout()}
