@@ -6,9 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { IonIcon } from "@ionic/react";
+import { reorderThreeOutline } from "ionicons/icons";
 import {
   CellType,
   Exercise,
+  createLevelExercisePool,
   getExerciseBlockCount,
   LEVEL_MAP,
   LEVEL_POINTS,
@@ -47,6 +50,7 @@ interface Props {
   onWrong: () => void;
   onDone: () => void;
   onExerciseChange: (current: number, total: number) => void;
+  onAttemptsChange?: (left: number, total: number) => void;
 }
 
 export interface RobotGameHandle {
@@ -106,15 +110,6 @@ function getPickUpGif(obj?: RobotObject): string {
   return obj?.type === "⭐" ? ROBOT_PICK_UP_STAR_GIF : ROBOT_PICK_UP_BOX_GIF;
 }
 
-function shuffleSourceBlocks(): BlockId[] {
-  const shuffled = shufflePick(SOURCE_BLOCKS, SOURCE_BLOCKS.length);
-  const isOriginalOrder = shuffled.every(
-    (block, idx) => block === SOURCE_BLOCKS[idx],
-  );
-
-  return isOriginalOrder ? ["avanzar", "recoger", "fin", "inicio"] : shuffled;
-}
-
 const RobotGame = forwardRef<RobotGameHandle, Props>(
   (
     {
@@ -125,13 +120,14 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
       onWrong,
       onDone,
       onExerciseChange,
+      onAttemptsChange,
     },
     ref,
   ) => {
   const levelKey = LEVEL_MAP[difficulty];
   const levelCfg = LEVELS[levelKey];
 
-  const [sourceBlocks] = useState<BlockId[]>(shuffleSourceBlocks);
+  const sourceBlocks = SOURCE_BLOCKS;
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exIdx, setExIdx] = useState(0);
   const [sequence, setSequence] = useState<SequenceItem[]>([]);
@@ -263,6 +259,7 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
     syncVisualRobotCol(startCol);
     setRobotGifSrc(getIdleRobotGif(grid, 0, startCol));
     setAttemptsLeft(levelCfg.attempts);
+    onAttemptsChange?.(levelCfg.attempts, levelCfg.attempts);
     setSequence([]);
     setResultOverlay(null);
     rerender();
@@ -270,8 +267,9 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   };
 
   useEffect(() => {
+    const exercisePool = createLevelExercisePool(levelKey);
     const selected = shufflePickUniqueBlockCounts(
-      levelCfg.exercises,
+      exercisePool,
       levelCfg.showCount,
     );
     setExercises(selected);
@@ -350,11 +348,15 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
   ) => {
     const touch = e.touches[0];
     const src = e.currentTarget as HTMLElement;
-    const rect = src.getBoundingClientRect();
-    const ghost = src.cloneNode(true) as HTMLElement;
+    const ghostSource =
+      fromIdx !== null
+        ? ((src.closest(".rg-piece") as HTMLElement | null) ?? src)
+        : src;
+    const rect = ghostSource.getBoundingClientRect();
+    const ghost = ghostSource.cloneNode(true) as HTMLElement;
     ghost.style.cssText = `
       position:fixed; z-index:9999; opacity:0.75; pointer-events:none;
-      width:fit-content; left:${rect.left}px; top:${rect.top}px; margin:0; height: 2.8rem;
+      width:${rect.width}px; left:${rect.left}px; top:${rect.top}px; margin:0; box-sizing:border-box;
     `;
     document.body.appendChild(ghost);
     touchDrag.current = {
@@ -538,14 +540,15 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
       const left = core.current.attemptsLeft - 1;
       core.current.attemptsLeft = left;
       setAttemptsLeft(left);
+      onAttemptsChange?.(left, levelCfg.attempts);
       const isFinalAttempt = left <= 0;
       if (isFinalAttempt) onWrong();
       await showResultOverlay({
         type: "fail",
-        title: left > 0 ? "Intento agotado" : "Sin intentos",
+        title: left > 0 ? "Oportunidad agotada" : "Sin oportunidades",
         message:
           left > 0
-            ? `Intentos restantes: ${left}`
+            ? `Oportunidades restantes: ${left}`
             : "Avanzando al siguiente ejercicio.",
       });
 
@@ -686,20 +689,30 @@ const RobotGame = forwardRef<RobotGameHandle, Props>(
               key={idx}
               data-seq-idx={idx}
               className={`rg-piece rg-piece--${item.id} rg-piece--inzone${dragOverIdx === idx ? (dragAbove ? " rg-piece--drop-above" : " rg-piece--drop-below") : ""}`}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("text/plain", item.id);
-                dragData.current = {
-                  id: item.id,
-                  param: item.param ?? null,
-                  fromIdx: idx,
-                };
-              }}
               onDragOver={(e) => handlePieceDragOver(e, idx)}
               onDragLeave={() => setDragOverIdx(null)}
               onDrop={(e) => handlePieceDrop(e, idx)}
-              onTouchStart={(e) => handleTouchStart(e, item.id, idx, item.param ?? null)}
             >
+              <button
+                type="button"
+                className="rg-drag-handle"
+                aria-label="Reorganizar bloque"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", item.id);
+                  dragData.current = {
+                    id: item.id,
+                    param: item.param ?? null,
+                    fromIdx: idx,
+                  };
+                }}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  handleTouchStart(e, item.id, idx, item.param ?? null);
+                }}
+              >
+                <IonIcon icon={reorderThreeOutline} />
+              </button>
               {item.id === "inicio" && (<span style={{flex: '1', textAlign: 'center'}}>Inicio</span>)}
               {item.id === "fin" && (<span style={{flex: '1', textAlign: 'center'}}>Fin</span>)}
               {item.id === "recoger" && (<span style={{flex: '1', textAlign: 'center'}}>Recoger objeto</span>)}

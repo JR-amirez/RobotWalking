@@ -179,7 +179,7 @@
   position: relative;
   border: 2px solid transparent;
   transition: box-shadow 0.15s;
-  height: 75%;
+  height: 2.1rem;
   padding: 0 10px;
   border: 2px solid var(--color-primary);
 }
@@ -193,6 +193,21 @@
   box-sizing: border-box;
   height: fit-content;
   padding: 5px 5px;
+  cursor: default;
+  touch-action: pan-y;
+}
+
+.rg-piece--inzone .rg-piece-avanzar {
+  font-size: 0.75rem;
+}
+
+.rg-piece--inzone .rg-piece-avanzar .rg-param {
+  width: 30px;
+  padding: 2px 4px;
+}
+
+.rg-piece--inzone:active {
+  cursor: default;
 }
 
 .rg-piece--drop-above {
@@ -225,6 +240,29 @@
   justify-content: center;
   gap: 6px;
   flex: 1;
+}
+
+.rg-drag-handle {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  padding: 0;
+  touch-action: none;
+}
+
+.rg-drag-handle:active {
+  cursor: grabbing;
+}
+
+.rg-drag-handle ion-icon {
+  font-size: 22px;
 }
 
 .rg-remove {
@@ -278,6 +316,7 @@
 }
 
 .rg-grid-area {
+  position: relative;
   grid-area: grid-area;
   width: 98%;
   border: 1px solid #d5dde8;
@@ -411,7 +450,16 @@
 }
 
 .rg-attempts {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  z-index: 10;
+  padding: 6px 10px;
+  border: 1px solid #d5dde8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
   font-size: 13px;
+  font-weight: 700;
   color: #64748b;
 }
 

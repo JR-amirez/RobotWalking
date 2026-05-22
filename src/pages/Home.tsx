@@ -5,7 +5,6 @@ import {
   IonChip,
   IonContent,
   IonIcon,
-  IonNote,
   IonPage,
   IonPopover,
 } from "@ionic/react";
@@ -19,7 +18,6 @@ import {
   pauseCircleOutline,
   playCircleOutline,
   refresh,
-  time,
   trophyOutline,
 } from "ionicons/icons";
 import "./Home.css";
@@ -133,7 +131,7 @@ const getGameConfig = (difficulty: Difficulty): GameConfig => {
 
 const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
   const robotGameRef = useRef<RobotGameHandle>(null);
-  const [showTypeInstructions, setShowTypeInstructions] = useState<boolean>(false);
+  const [showTypeInstructions] = useState<boolean>(false);
 
 
   const [showStartScreen, setShowStartScreen] = useState<boolean>(true);
@@ -152,23 +150,21 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
   const [appAutor, setAppAutor] = useState<string>("Valeria C. Z.");
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
   const [showSummary, setShowSummary] = useState<boolean>(false);
-  const [showFeedback, setShowFeedback] = useState<boolean>(false);
   const [pausado, setPausado] = useState<boolean>(false);
   const [activeButtonIndex, setActiveButtonIndex] = useState<number | null>(
     null,
   );
   const [isComplete, setisComplete] = useState<boolean>(true);
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [score, setScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
-  const [showExitModal, setShowExitModal] = useState<boolean>(false);
-  const [configLoaded, setConfigLoaded] = useState<boolean>(false);
-  const [tiempoRestante, setTiempoRestante] = useState(0);
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
   const [totalCorrect, setTotalCorrect] = useState<number>(0);
   const [totalAnswered, setTotalAnswered] = useState<number>(0);
+  const [robotAttemptsLeft, setRobotAttemptsLeft] = useState<number>(
+    () => getGameConfig(difficulty).attemptsPerExercise,
+  );
   const [gameActive, setGameActive] = useState<boolean>(false);
   const [isExecutingRobot, setIsExecutingRobot] = useState<boolean>(false);
   const [showARModal, setShowARModal] = useState<boolean>(false);
@@ -182,7 +178,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
         const res = await fetch("/config/robot-config.json");
 
         if (!res.ok) {
-          setConfigLoaded(true);
           return;
         }
 
@@ -201,8 +196,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
         if (data.ar) arConfigRef.current = data.ar;
       } catch (err) {
         console.error("No se pudo cargar robot-config.json", err);
-      } finally {
-        setConfigLoaded(true);
       }
     };
 
@@ -227,71 +220,18 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
   }, [countdown, showCountdown]);
 
   useEffect(() => {
-    if (
-      !gameActive ||
-      isPaused ||
-      showCountdown ||
-      showFeedback ||
-      showARModal ||
-      tiempoRestante <= 0
-    )
-      return;
-
-    const interval = setInterval(() => {
-      setTiempoRestante((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleTimeExpired();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [
-    gameActive,
-    isPaused,
-    showCountdown,
-    showFeedback,
-    showARModal,
-    tiempoRestante,
-    currentExerciseIndex,
-  ]);
-
-  const TIMEOUT_MESSAGES = [
-    "Sigue intentando 💪",
-    "No te rindas ✨",
-    "¡Vamos, tú puedes! 🚀",
-  ];
+    setRobotAttemptsLeft(getGameConfig(difficultyConfig).attemptsPerExercise);
+  }, [difficultyConfig]);
 
   const getInstructions = (): string => {
     switch (difficultyConfig) {
       case "basic":
-        return "Nivel Básico: resolverás 3 ejercicios lineales sin objetos. Cada ejercicio cuenta con 3 oportunidades.";
+        return "Nivel Básico: resolverás 3 laberintos lineales sin objetos. Cada laberinto cuenta con 3 oportunidades y no tiene límite de tiempo.";
       case "intermediate":
-        return "Nivel Intermedio: resolverás 4 ejercicios lineales con 2 a 3 objetos a recoger. Cada ejercicio cuenta con 2 oportunidades.";
+        return "Nivel Intermedio: resolverás 4 laberintos lineales con 2 a 3 objetos a recoger. Cada laberinto cuenta con 2 oportunidades y no tiene límite de tiempo.";
       case "advanced":
-        return "Nivel Avanzado: resolverás 5 ejercicios lineales con 4 a 6 objetos a recoger. Cada ejercicio cuenta con 1 oportunidad.";
+        return "Nivel Avanzado: resolverás 5 laberintos lineales con 4 a 6 objetos a recoger. Cada laberinto cuenta con 1 oportunidad y no tiene límite de tiempo.";
     }
-  };
-
-  const getTimeoutMessage = () =>
-    TIMEOUT_MESSAGES[Math.floor(Math.random() * TIMEOUT_MESSAGES.length)];
-
-  const handleTimeExpired = () => {
-    if (!gameActive || showFeedback) return;
-
-    const currentExercise = 0;
-    if (!currentExercise) return;
-
-    setTotalAnswered((prev) => prev + 1);
-    setFeedbackMessage(getTimeoutMessage());
-    setShowFeedback(true);
-
-    setTimeout(() => {
-      advanceAfterFeedback();
-    }, 1800);
   };
 
   const getDifficultyLabel = (nivel: Difficulty): string => {
@@ -366,17 +306,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
     return `${Number(day)} de ${meses[mesIndex]} del ${year}`;
   };
 
-  const getTotalTime = (difficulty: Difficulty): number => {
-    switch (difficulty) {
-      case "basic":
-        return 120;
-      case "intermediate":
-        return 150;
-      case "advanced":
-        return 180;
-    }
-  };
-
   const openAR = (tipo: ARTipo, onClose: () => void) => {
     const seccion = arConfigRef.current?.[tipo];
     const hasContent =
@@ -411,26 +340,13 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
     setTotalAnswered(0);
     setScore(0);
     setMaxScore(config.totalExercises * config.pointsCorrect);
-    setTiempoRestante(getTotalTime(difficultyConfig));
+    setRobotAttemptsLeft(config.attemptsPerExercise);
     setGameActive(true);
   };
 
   const endGame = () => {
     setGameActive(false);
     openAR("fin", () => setShowSummary(true));
-  };
-
-  const advanceAfterFeedback = () => {
-    setShowFeedback(false);
-
-    setCurrentExerciseIndex((prev) => {
-      const next = prev + 1;
-      if (next >= 1) {
-        endGame();
-        return prev;
-      }
-      return next;
-    });
   };
 
   const handleSalirDesdePausa = () => {
@@ -464,7 +380,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
       showCountdown ||
       showSummary ||
       showInstructions ||
-      showFeedback ||
       showARModal ||
       pausado
     )
@@ -486,21 +401,18 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
   };
 
   const handleResume = () => {
-    setShowExitModal(false);
     setIsPaused(false);
     setPausado(false);
   };
 
   const handleExitToStart = () => {
     unlockOrientation();
-    setShowExitModal(false);
     setIsPaused(false);
     setGameActive(false);
 
     setShowCountdown(false);
     setShowInstructions(false);
     setShowSummary(false);
-    setShowFeedback(false);
 
     setShowStartScreen(true);
   };
@@ -512,19 +424,12 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
     setisComplete(true);
     setScore(0);
     setMaxScore(0);
-    setTiempoRestante(0);
     setCurrentExerciseIndex(0);
     setTotalCorrect(0);
     setTotalAnswered(0);
+    setRobotAttemptsLeft(getGameConfig(difficultyConfig).attemptsPerExercise);
     setGameActive(false);
     setShowSummary(false);
-    setShowFeedback(false);
-  };
-
-  const formatearTiempo = (segundos: number) => {
-    const minutos = Math.floor(segundos / 60);
-    const segs = Math.max(0, segundos % 60);
-    return `${minutos}:${segs.toString().padStart(2, "0")}`;
   };
 
   const currentGameConfig = getGameConfig(difficultyConfig);
@@ -534,12 +439,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
       {showCountdown && countdown > 0 && (
         <div className="countdown-overlay">
           <div className="countdown-number">{countdown}</div>
-        </div>
-      )}
-
-      {showFeedback && (
-        <div className="feedback-overlay">
-          <div className="feedback-text">{feedbackMessage}</div>
         </div>
       )}
 
@@ -686,6 +585,12 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                   {currentGameConfig.totalExercises}
                 </p>
               </div>
+              <div className="card">
+                <p className="title">OPORTUNIDADES POR LABERINTO</p>
+                <p className="data">
+                  {currentGameConfig.attemptsPerExercise}
+                </p>
+              </div>
               <div className="card description">
                 <p className="title">DESCRIPCIÓN</p>
                 <p className="data">{appDescripcion}</p>
@@ -704,7 +609,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
         <div className="pause-overlay">
           <div className="pause-card">
             <h2>Juego en pausa</h2>
-            <p>El tiempo está detenido.</p>
+            <p>El juego está detenido.</p>
 
             <IonButton
               expand="block"
@@ -838,10 +743,11 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 )}
               </div>
 
-              <div className="temporizador">
-                <IonIcon icon={time} className="icono" />
-                <h5 className="tiempo-display">
-                  {formatearTiempo(tiempoRestante)}
+              <div className="opportunities">
+                <IonIcon icon={gameControllerOutline} className="icono" />
+                <h5 className="opportunities-display">
+                  Oportunidades: {robotAttemptsLeft}/
+                  {currentGameConfig.attemptsPerExercise}
                 </h5>
               </div>
 
@@ -877,6 +783,7 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 }}
                 onWrong={() => setTotalAnswered((prev) => prev + 1)}
                 onDone={endGame}
+                onAttemptsChange={(left) => setRobotAttemptsLeft(left)}
                 onExerciseChange={(current, total) => {
                   setCurrentExerciseIndex(current);
                   setMaxScore(total * currentGameConfig.pointsCorrect);
@@ -891,7 +798,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                 onClick={handlePausar}
                 disabled={
                   showCountdown ||
-                  showFeedback ||
                   showARModal ||
                   showSummary ||
                   showInstructions ||
@@ -914,7 +820,6 @@ const Home: React.FC<PlayProps> = ({ difficulty = "basic" }) => {
                   isPaused ||
                   showARModal ||
                   showCountdown ||
-                  showFeedback ||
                   showSummary ||
                   showInstructions ||
                   pausado

@@ -96,11 +96,11 @@ Recomendacion: usar valores sin acentos y sin espacios.
 
 Efectos por nivel:
 
-| Nivel | Ejercicios mostrados | Intentos por ejercicio | Puntos por acierto | Tiempo total |
+| Nivel | Laberintos mostrados | Oportunidades por laberinto | Puntos por acierto | Límite de tiempo |
 | --- | ---: | ---: | ---: | ---: |
-| `basico` / `basic` | 3 | 3 | 10 | 120 s |
-| `intermedio` / `intermediate` | 4 | 2 | 20 | 150 s |
-| `avanzado` / `advanced` | 5 | 1 | 30 | 180 s |
+| `basico` / `basic` | 3 | 3 | 10 | Sin límite |
+| `intermedio` / `intermediate` | 4 | 2 | 20 | Sin límite |
+| `avanzado` / `advanced` | 5 | 1 | 30 | Sin límite |
 
 ### Opciones de `plataformas`
 

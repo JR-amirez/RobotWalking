@@ -24,6 +24,50 @@ export function getExerciseBlockCount(exercise: Exercise): number {
   return Math.max((exercise.grid[0]?.length ?? 1) - 1, 0);
 }
 
+function createObjectColumns(blocks: number, count: number): number[] {
+  const availableCols = Math.max(blocks - 1, 0);
+  const safeCount = Math.min(count, availableCols);
+
+  if (safeCount <= 0) return [];
+
+  const used = new Set<number>();
+
+  for (let idx = 0; idx < safeCount; idx++) {
+    const col = Math.round(((idx + 1) * blocks) / (safeCount + 1));
+    used.add(Math.min(Math.max(col, 1), blocks - 1));
+  }
+
+  for (let col = 1; used.size < safeCount && col < blocks; col++) {
+    used.add(col);
+  }
+
+  return [...used].sort((a, b) => a - b);
+}
+
+function createExercisePool(
+  startId: number,
+  minBlocks: number,
+  maxBlocks: number,
+  minObjects = 0,
+  maxObjects = minObjects,
+): Exercise[] {
+  const objectRange = Math.max(maxObjects - minObjects + 1, 1);
+  const exercises: Exercise[] = [];
+
+  for (let blocks = minBlocks; blocks <= maxBlocks; blocks++) {
+    const objectCount = minObjects + ((blocks - minBlocks) % objectRange);
+    exercises.push(
+      createLinearExercise(
+        startId + exercises.length,
+        blocks,
+        createObjectColumns(blocks, objectCount),
+      ),
+    );
+  }
+
+  return exercises;
+}
+
 function createLinearExercise(
   id: number,
   blocks: number,
@@ -48,46 +92,59 @@ function createLinearExercise(
   };
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+}
+
+function createRandomObjectColumns(blocks: number, count: number): number[] {
+  const availableCols = Array.from(
+    { length: Math.max(blocks - 1, 0) },
+    (_, idx) => idx + 1,
+  );
+
+  return shuffle(availableCols)
+    .slice(0, count)
+    .sort((a, b) => a - b);
+}
+
+export function createLevelExercisePool(levelKey: string): Exercise[] {
+  return (LEVELS[levelKey]?.exercises ?? []).map((exercise) => {
+    const blocks = getExerciseBlockCount(exercise);
+    const objectCount = exercise.objects.length;
+
+    return createLinearExercise(
+      exercise.id,
+      blocks,
+      createRandomObjectColumns(blocks, objectCount),
+    );
+  });
+}
+
 export const LEVELS: Record<string, LevelConfig> = {
   basico: {
     label: "Básico",
     attempts: 3,
     showCount: 3,
-    exercises: Array.from({ length: 7 }, (_, idx) =>
-      createLinearExercise(idx + 1, idx + 3),
-    ),
+    exercises: createExercisePool(1, 3, 12),
   },
   intermedio: {
     label: "Intermedio",
     attempts: 2,
     showCount: 4,
-    exercises: [
-      createLinearExercise(7, 5, [2, 4]),
-      createLinearExercise(8, 6, [1, 3, 5]),
-      createLinearExercise(9, 7, [2, 5]),
-      createLinearExercise(10, 8, [2, 4, 6]),
-      createLinearExercise(11, 9, [3, 6]),
-      createLinearExercise(12, 10, [2, 5, 8]),
-      createLinearExercise(13, 11, [3, 7]),
-      createLinearExercise(14, 12, [2, 6, 10]),
-      createLinearExercise(15, 13, [3, 7, 11]),
-      createLinearExercise(16, 14, [4, 8, 12]),
-    ],
+    exercises: createExercisePool(100, 5, 16, 2, 3),
   },
   avanzado: {
     label: "Avanzado",
     attempts: 1,
     showCount: 5,
-    exercises: [
-      createLinearExercise(17, 7, [1, 3, 5, 6]),
-      createLinearExercise(18, 8, [1, 3, 5, 7]),
-      createLinearExercise(19, 9, [1, 3, 5, 7]),
-      createLinearExercise(20, 10, [1, 3, 5, 7, 9]),
-      createLinearExercise(21, 11, [1, 3, 5, 7, 9]),
-      createLinearExercise(22, 12, [2, 4, 6, 8, 10]),
-      createLinearExercise(23, 13, [1, 3, 5, 7, 9, 11]),
-      createLinearExercise(24, 14, [2, 4, 6, 8, 10, 12]),
-    ],
+    exercises: createExercisePool(200, 7, 18, 4, 6),
   },
 };
 
